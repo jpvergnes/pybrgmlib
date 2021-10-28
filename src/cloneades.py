@@ -7,7 +7,7 @@ import psycopg2
 import pandas as pd
 
 
-def requete_pz_chroniques(codes, filtre='', only_point_eau=False):
+def request_pz_chroniques(codes, filtre='', only_point_eau=False):
     """
     Request time series of piezometers from the ADES Clone. Write the file
     point_eau.csv with the description of the piezometers.
