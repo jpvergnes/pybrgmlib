@@ -1,5 +1,44 @@
 import numpy as np
 import pandas as pd
+import datetime
+try:
+    import importlib.resources as pkg_resources
+except ImportError:
+    # Try backported to PY<37 `importlib_resources`.
+    import importlib_resources as pkg_resources
+
+X = (56000, 1200000)
+Y = (1613000, 2685000)
+RES = 8000.
+NX, NY = 143, 134
+EPSG = 27572
+
+def build_grid_safran():
+    """
+    Build the mask array of the SAFRAN grid.
+
+    Returns
+    -------
+    numpy.array
+        Array with the zone numbers from the SAFRAN grid. No data cells are 
+        equal to 9999.
+    """
+    coord = pkg_resources.open_text('.', 'coord_9892')
+    df = pd.read_csv(coord, header=None, delim_whitespace=True)
+    Xcentre = df[4]
+    Ycentre = df[5]
+    XYcentre = [(x, y) for x, y in zip(Xcentre, Ycentre)]
+    num_safran = df[1]
+
+    raster = np.ones((NY, NX))*9999
+    for i in range(NY):
+        for j in range(NX):
+            x = X[0] + RES/2. + j*RES
+            y = Y[1] - RES/2. - i*RES
+            if (x, y) in XYcentre:
+                index = XYcentre.index((x, y))
+                raster[i, j] = num_safran[index]
+    return raster
 
 def read_meteo_brgm_format(fname, ystart, **kwargs):
     """
@@ -44,3 +83,33 @@ def read_meteo_brgm_format(fname, ystart, **kwargs):
         '{0}-7-31'.format(ystart + 1),
     )
     return df
+
+def read_meteofrance_format(fname, zones, variables=['PS', 'PL', 'ETP', 'T']):
+    """
+    Read the SAFRAN data provided by Météo France and extract
+    the requested zones.
+
+    Parameters
+    ----------
+    fname: str
+        File name to read
+    zones: list of integers
+        List of the zone numbers to extract
+    variables: list of str, default=['PS', 'PL', 'ETP', 'T']
+        List of variables as they appear in columns in the file.
+    
+    Return
+    ------
+    pandas.DataFrame
+    """
+    date_parser = lambda x: datetime.datetime.strptime(x, '%Y%m%d')
+    df = pd.read_csv(fname, delimiter=';', header=None, parse_dates=True,
+        date_parser=date_parser, index_col=0)
+    champs = ['Zone'] + variables
+    df.columns = pd.Index(champs)
+    df = df.pivot(columns='Zone', values=champs[1:])
+    df.columns = df.columns.set_names('Champ', 0)
+    df.index = df.index.set_names('Date')
+    selection = pd.MultiIndex.from_product([champs[1:], zones],
+        names=['Champ', 'Zone'])
+    return df[selection]
