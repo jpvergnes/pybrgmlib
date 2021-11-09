@@ -6,6 +6,25 @@ import os
 import psycopg2
 import pandas as pd
 
+def read_csv_chronique(fname):
+    """
+    Read a csv file extracted from clone ades and return a dataframe
+
+    Parameters
+    ----------
+    fname : str
+        file name
+
+    Return
+    ------
+    pandas.DataFrame
+    """
+    return pd.read_csv(
+        fname,
+        parse_dates=True, index_col='date_mesure', sep=';',
+        encoding='cp1252'
+        )
+
 
 def request_pz_chroniques(codes, filtre='', only_point_eau=False):
     """
