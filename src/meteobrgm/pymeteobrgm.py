@@ -1,11 +1,19 @@
-import numpy as np
-import pandas as pd
 import datetime
 try:
     import importlib.resources as pkg_resources
 except ImportError:
     # Try backported to PY<37 `importlib_resources`.
     import importlib_resources as pkg_resources
+
+import numpy as np
+import pandas as pd
+import dask
+import xarray
+import pylab as plt
+
+import meteobrgm
+
+dask.config.set(**{'array.slicing.split_large_chunks': True})
 
 X = (56000, 1200000)
 Y = (1613000, 2685000)
@@ -23,7 +31,7 @@ def build_grid_safran():
         Array with the zone numbers from the SAFRAN grid. No data cells are 
         equal to 9999.
     """
-    coord = pkg_resources.open_text('.', 'coord_9892')
+    coord = pkg_resources.open_text(meteobrgm, 'coord_9892')
     df = pd.read_csv(coord, header=None, delim_whitespace=True)
     Xcentre = df[4]
     Ycentre = df[5]
@@ -39,6 +47,27 @@ def build_grid_safran():
                 index = XYcentre.index((x, y))
                 raster[i, j] = num_safran[index]
     return raster
+
+def return_indices_safran(return_raster=False):
+    """
+    Return indices X and Y from SAFRAN
+
+    Returns
+    -------
+    indices : list of tuple (int, int)
+    raster (optional) : numpy.array
+    """
+    raster = meteobrgm.build_grid_safran()
+    yj, xi  = np.indices(raster.shape)
+    yj = yj + 1
+    xi = xi + 1
+    xi = np.ma.masked_where(raster == 9999., xi).compressed()
+    yj = np.ma.masked_where(raster == 9999., yj).compressed()
+    indices = [(j, i) for j, i in zip(yj, xi)]
+    if return_raster:
+        return indices, raster
+    else:
+        return indices
 
 def read_meteo_brgm_format(fname, ystart, **kwargs):
     """
@@ -113,3 +142,77 @@ def read_meteofrance_format(fname, zones, variables=['PS', 'PL', 'ETP', 'T']):
     selection = pd.MultiIndex.from_product([champs[1:], zones],
         names=['Champ', 'Zone'])
     return df[selection]
+
+def write_meteo_brgm_format(fname, data, header):
+    """
+    Write data in brgm format
+
+    Parameters
+    ----------
+    fname : filename of file handle
+    data : 1D or 2D array_like     
+    header : str
+    """
+    np.savetxt(fname,
+            data,
+            header=header,
+            delimiter=' ',
+            fmt='%.3f')
+
+
+class MFSafranNetcdfDataset():
+    def __init__(self, paths, parallel=False):
+        indices = meteobrgm.return_indices_safran()
+        df = xarray.open_mfdataset(paths, parallel)
+        xdim_name, ydim_name = 'X', 'Y'
+        if 'i' in df.coords.dims and 'j' in df.coords.dims:
+            xdim_name, ydim_name = 'i', 'j'
+        df[xdim_name] = np.arange(1, 144)
+        df[ydim_name] = np.arange(134, 0, -1)
+        df = df.stack(NUM_ZONE=(ydim_name, xdim_name))
+        df = df.loc[{'NUM_ZONE':indices}]
+        self.df = df.fillna(0)
+        self.nbzones = len(indices)
+        self.paths = paths
+
+    def get_hydrological_year(self, variable, year):
+        return self.df[variable].sel(
+            time=slice(
+                '{0}-8-1'.format(year),
+                '{0}-7-31'.format(year + 1)
+            ),
+        )
+
+    def convert_to_meteo_brgm_format(self, paths, variable, year_start, year_end):
+        """
+        Convert netcdf file in brgm format
+
+        Parameters
+        ----------
+        paths : str or list of str
+        variable : str
+        year_start : int
+        year_end : int
+        """
+        for year in range(year_start, year_end):
+            data = self.get_hydrological_year(variable, year)
+            long_name = variable
+            units = 'Unknown'
+            if hasattr(data, 'long_name'):
+                long_name = data.long_name
+            if hasattr(data, 'units'):
+                units = data.units
+            header = (
+                    "Données de la variable {0} convertie en {1} pour l'année hydrologique "
+                    "{2}/{3} des {4} zones du ou des fichiers :"
+                    "{5}".format(
+                        long_name, units, year, year + 1, self.nbzones, self.paths
+                        )
+                    )
+            meteobrgm.write_meteo_brgm_format(
+                '{0}_{1}_{2}'.format(
+                    paths, year, year +1
+                ),
+                data,
+                header
+            )
