@@ -4,5 +4,7 @@ from meteobrgm.pymeteobrgm import (
     read_meteo_brgm_format,
     read_meteofrance_format,
     write_meteo_brgm_format,
+    write_meteo_brgm_format_with_date,
+    write_excel_simultane_format,
     MFSafranNetcdfDataset
 )

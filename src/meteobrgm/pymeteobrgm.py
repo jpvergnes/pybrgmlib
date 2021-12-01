@@ -146,7 +146,7 @@ def read_meteofrance_format(fname, zones, variables=['PS', 'PL', 'ETP', 'T']):
 
 def write_meteo_brgm_format(fname, data, header):
     """
-    Write data in brgm format
+    Write data in brgm format (no column date)
 
     Parameters
     ----------
@@ -159,6 +159,37 @@ def write_meteo_brgm_format(fname, data, header):
             header=header,
             delimiter=' ',
             fmt='%.3f')
+
+def write_meteo_brgm_format_with_date(fname, df):
+    """
+    Write data in brgm format (with column date at the end)
+
+    Parameters
+    ----------
+    fname : filename of file handle
+    df : pandas.DataFrame
+        Needs to have datetime index 
+    """
+    df = df.reset_index()
+    dates = df.pop('index')
+    df.insert(len(df.columns), 'Date', dates)
+    with open(fname, 'w', newline='') as f:
+        f.write('# ')
+        df.to_csv(f, sep=' ', index=None, date_format='%d/%m/%Y')
+
+def write_excel_simultane_format(fname, df):
+    """
+    Write pandas.dataframe in excel simultane format.
+
+    Parameters
+    ----------
+    fname : filename of file handle
+    df : pandas.DataFrame
+        Needs to have datetime index 
+    """
+    with open(fname, 'w', newline='') as f:
+        f.write('# ')
+        df.to_csv(f, sep=' ', date_format='%d/%m/%Y', index_label='Date')
 
 
 class MFSafranNetcdfDataset():
