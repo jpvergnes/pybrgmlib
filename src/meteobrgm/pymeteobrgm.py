@@ -1,4 +1,5 @@
 import datetime
+import os
 try:
     import importlib.resources as pkg_resources
 except ImportError:
@@ -206,7 +207,7 @@ class MFSafranNetcdfDataset():
                     "Données de la variable {0} convertie en {1} pour l'année hydrologique "
                     "{2}/{3} des {4} zones du ou des fichiers :"
                     "{5}".format(
-                        long_name, units, year, year + 1, self.nbzones, self.paths
+                        long_name, units, year, year + 1, self.nbzones, os.path.basename(self.paths)
                         )
                     )
             meteobrgm.write_meteo_brgm_format(
