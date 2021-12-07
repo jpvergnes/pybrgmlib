@@ -11,6 +11,7 @@ import pandas as pd
 import dask
 import xarray
 import pylab as plt
+from shapely.geometry import Polygon
 
 import meteobrgm
 
@@ -21,6 +22,32 @@ Y = (1613000, 2685000)
 RES = 8000.
 NX, NY = 143, 134
 EPSG = 27572
+
+def build_polygon_safran():
+    """
+    Build the shapefile
+    """
+    coord = pkg_resources.open_text(meteobrgm, 'coord_9892')
+    df = pd.read_csv(coord, header=None, delim_whitespace=True)
+    Xleft = df[4] - RES/2.
+    Xright = df[4] + RES/2.
+    Ytop = df[5] - RES/2.
+    Ybottom = df[5] + RES/2.
+
+    polygons = []
+    for i in range(9892):
+        polygons.append(
+            Polygon(
+                (
+                    (Xleft[i], Ybottom[i]),
+                    (Xright[i], Ybottom[i]),
+                    (Xright[i], Ytop[i]),
+                    (Xleft[i], Ytop[i]),
+                    (Xleft[i], Ybottom[i])
+                )
+            )
+        )
+    return polygons
 
 def build_grid_safran():
     """
