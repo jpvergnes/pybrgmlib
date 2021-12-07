@@ -4,8 +4,7 @@ Fonctions GIS
 import geopandas as gpd
 from shapely.geometry import Point, Polygon, LineString
 from fiona.crs import from_epsg
-import gdal
-import osr, ogr
+from osgeo import osr, ogr
 import numpy as np
 
 def get_coord_transform(inputEPSG, outputEPSG):
