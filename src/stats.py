@@ -90,7 +90,7 @@ def compute_ips(dfobs, ref_period=None, njobs=1, **kwargs):
             index='year', columns='month'
         )
     df = dfobs.pivot(index='year', columns='month')
-    def single_ips(name, item_ref):
+    def single_ips(name, item_ref, data):
         data_ref = item_ref.dropna()
         min1 = kwargs.get('min', data_ref.min())
         max1 = kwargs.get('max', data_ref.max())
@@ -108,16 +108,13 @@ def compute_ips(dfobs, ref_period=None, njobs=1, **kwargs):
         y = np.cumsum(y) / np.sum(y)
 
         f = interp1d(x, y, bounds_error=False, fill_value='extrapolate')
-        data = df.loc[:, name]
         data_f = np.maximum(f(data), 0.001)
         data_f = np.minimum(data_f, 0.999)
         spli = norm.ppf(data_f)
-        if np.isnan(spli).any():
-            import ipdb; ipdb.set_trace()
         return spli
     inputs = tqdm(list(dfref.iteritems()))
     splis = Parallel(n_jobs=njobs)(
-        delayed(single_ips)(name, item) for name, item in inputs
+            delayed(single_ips)(name, item, df.loc[:, name]) for name, item in inputs
     )
     df.iloc[:, :] = np.array(splis).T
     df = df.stack(dropna=False)
