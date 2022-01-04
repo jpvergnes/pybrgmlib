@@ -10,7 +10,8 @@ import numpy as np
 import pandas as pd
 import dask
 import xarray
-import pylab as plt
+from tqdm import tqdm
+from joblib import Parallel, delayed
 from shapely.geometry import Polygon
 
 import meteobrgm
@@ -97,7 +98,7 @@ def return_indices_safran(return_raster=False):
     else:
         return indices
 
-def read_meteo_brgm_format(fname, ystart, **kwargs):
+def read_meteo_brgm_format(fname, ystart, zones=9892, skiprows=1):
     """
     Read data from the formatted file used in BRGM for storing
     meteorological data available on the SAFRAN grid over France
@@ -105,35 +106,29 @@ def read_meteo_brgm_format(fname, ystart, **kwargs):
 
     Parameters
     ----------
-    fname: str
+    fname : str
         File name to read
-    ystart: int
+    ystart : int
         Starting year of the file
+    zones : list of int (optional)
+        SAFRAN zone numbers to extract (default to 9892)
+    skiprows : (optional)
+        rows to skip (default to 1)
     
     Return
     ------
     pandas.DataFrame
-
-    Other Parameters
-    ----------------
-    **kwargs: other properties, optional
-        *kwargs* are used to specify the following optional properties:
-        
-        skiprows: rows to skip (default to 1)
-        zones: SAFRAN zone numbers to extract (default to 9892)
     """
     ystart = int(ystart)
-    num_zones = kwargs.get('zones', list(range(1, 9893)))
-    num_zones = np.array(num_zones).astype('int')
-    skiprows = kwargs.get('skiprows', 1)
+    zones = np.array(zones).astype('int')
     df = pd.read_csv(
         fname,
         skiprows=skiprows,
         delim_whitespace=True,
         header=None
     )
-    df = df.iloc[:, num_zones - 1] # -1 car indice python
-    df.columns = num_zones
+    df = df.iloc[:, zones - 1] # -1 car indice python
+    df.columns = zones
     df.columns.name = 'Zone'
     df.index = pd.date_range(
         '{0}-8-1'.format(ystart),
@@ -275,3 +270,68 @@ class MFSafranNetcdfDataset():
                 data,
                 header
             )
+
+class ExtractSafran():
+    variables = {
+        'ETP': 'ETP_Jou_v2017_Safran_{0}_{1}',
+        'Plu+Neige': 'Plu+Neige_Jou_v2017_Safran_{0}_{1}',
+        'Pl_Neige': 'Pl_Neige_Jou_v2017_Safran_{0}_{1}',
+        'Pluie_Liq': 'Pluie_Liq_Jou_v2017_Safran_{0}_{1}',
+        'Temper': 'Temper_Jou_v2017_Safran_{0}_{1}',
+    }
+    host_dir = "\\\\VMPH74.brgm.fr\\Données\\Modélisation\\Hydrogéol_Aqui-FR\\Safran_v2017"
+    def __init__(self, output_dir, name, zones=9892):
+        self.input_dir = self.host_dir
+        if not os.path.isdir(output_dir):
+            os.makedirs(output_dir)
+        self.output_dir = output_dir
+        self.name = name
+        self.zones = zones
+    
+    def treatment(self, year, key, value):
+        fname = value.format(year, year + 1)
+        fname = '{0}/{1}'.format(self.input_dir, fname)
+        df = meteobrgm.read_meteo_brgm_format(fname, year, zones=self.zones)
+        fname = '{0}/{1}_{2}_{3}_{4}'.format(
+            self.output_dir, key, self.name, year, year + 1
+        )
+        meteobrgm.write_meteo_brgm_format_with_date(fname, df)
+
+    def get_parameters(self, start_year, end_year):
+        parameters = []
+        for year in range(start_year, end_year):
+            for key, value in self.variables.items():
+                parameters.append((year, key, value))
+        return parameters
+    
+    def extract_parallel_loop(self, start_year, end_year, n_jobs=1):
+        parameters = self.get_parameters(start_year, end_year)
+        inputs = tqdm(parameters)
+        Parallel(n_jobs=n_jobs)(delayed(self.treatment)(*args) for args in inputs)
+
+
+def extract_safran(output_dir, name, zones, start_year, end_year, n_jobs=1):
+    """
+    Extract zones SAFRAN from the files hosted on the BRGM server
+
+    Parameters
+    ----------
+    output_dir : str
+        Output directory where new files are stored
+    name : str
+        Name that is part of the new file name
+    zones : list of int
+        Zones to extract
+    start_year : int
+        First year of data
+    end_year : int
+        Last year of data
+    n_jobs (default 1) : int
+        Number of processes to execute
+    """
+    exs = ExtractSafran(
+        output_dir,
+        name,
+        zones
+    )
+    exs.extract_parallel_loop(start_year, end_year, n_jobs)
