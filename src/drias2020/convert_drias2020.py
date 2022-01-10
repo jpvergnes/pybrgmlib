@@ -32,7 +32,7 @@ start = {
 
 def scan_directories(directory):
     netcdfs = {}
-    for path in iglob('{0}/*/*/*/*/*/*'.format(directory):
+    for path in iglob('{0}/*/*/*/*/*/*'.format(directory)):
         path_split = path.split('/')
         varname = path_split[-2].split('Adjust')[0]
         if varname == 'evspsblpot':
@@ -131,14 +131,14 @@ def treatment(inp, directory):
             mf.df[varName].data = data.data
         write_year(nc, ncname, mf, year, varName, directory)
 
-def do_the_job(in_dir, out_dir, n_jobs):
+def convert_drias2020(in_dir, out_dir, n_jobs):
     netcdfs = scan_directories(in_dir, n_jobs)
     inputs = tqdm(list(netcdfs.items()))
     processed_list = Parallel(n_jobs=n_jobs)(
             delayed(treatment)(i, out_dir) for i in inputs)
 
 if __name__ == '__main__':
-    do_the_job(
+    convert_drias200(
         '/home/jvergnes/DRIAS2020',
         '/home/jvergnes/BRGM_DRIAS2020',
         10
