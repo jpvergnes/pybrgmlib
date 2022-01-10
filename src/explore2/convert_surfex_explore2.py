@@ -1,5 +1,5 @@
 import xarray as xr
-import write_to_file
+import explore2.write_to_file as write_to_file
 import os
 from glob import iglob
 from collections import defaultdict
@@ -58,6 +58,7 @@ def build_parameters(ncs):
     for nc, ncnames in ncs.items():
         for ncname in ncnames:
             parameters.append((nc, ncname))
+    return parameters
 
 def convert_surfex_explore2(in_dir, out_dir, n_jobs):
     ncs = scan_directories(in_dir)
