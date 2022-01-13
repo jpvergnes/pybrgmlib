@@ -74,9 +74,9 @@ short_list_mf = [
     ('MPI-ESM-LR', 'CCLM4-8-17', 'rcp8.5'),
 ]
 
-data_dir = 'E:/SURFEX/EXPLORE2/DRIAS2020/{0}/{1}/{2}/day'
-drainc_prefix = 'DRAINC_ISBA.bin'
-runoffc_prefix = 'RUNOFFC_ISBA.bin'
+data_dir = '/home/jvergnes/FRC/SURFEX/EXPLORE2/DRIAS2020/{0}/{1}/{2}/day'
+drainc_prefix = 'DRAINC_ISBA.BIN'
+runoffc_prefix = 'RUNOFFC_ISBA.BIN'
 
 def process(fichier):
     years = list(map(int, re.findall('_([0-9]+)', fichier)))
@@ -96,27 +96,46 @@ def process(fichier):
         index=date_range,
         columns=range(1, 9893)
     )
+    df.iloc[1:, :]= df.iloc[1:, :].values - df.iloc[:-1, :].values
+    df = df.resample('M').sum()
+    return df
 
 def build_parameters():
-    parameters = []
+    parameters, couples = [], []
     for couple in alls:
         data_dir_couple = data_dir.format(
             couple[0],
             couple[1],
             couple[2].upper().replace('.', '')
         )
+        print(data_dir_couple)
         for fichier in glob.glob('{0}/{1}*'.format(data_dir_couple, drainc_prefix)):
             parameters.append(fichier)
-    return parameters
+            couples.append(
+                (
+                    couple[0],
+                    couple[1],
+                    couple[2] 
+                )
+            )
+    return couples, parameters
 
-parameters = build_parameters()
-inputs = tqdm(parameters)
-processes = Parallel(n_jobs=8)(delayed(process)(i) for i in inputs)
-
-df = {}
-for proc, couple in zip(processes, alls):
-    df[couple] = proc
-
+if __name__ == '__main__':
+    couples, parameters = build_parameters()
+    inputs = tqdm(parameters)
+    processes = Parallel(n_jobs=40)(delayed(process)(i) for i in inputs)
+    
+    df = defaultdict(lambda: [])
+    for couple, process in zip(couples, processes):
+        df[couple].append(process)
+    
+    for couple in alls:
+        df[couple] = pd.concat(df[couple], axis=0)
+        df[couple] = df[couple].sort_index()
+    
+    df = pd.concat(df, axis=1)
+    df.columns = df.columns.set_names(['GCM', 'RCM', 'Period', 'Zone'])
+    df.to_pickle('drainc_explore2_surfex.pkl')
 
 
 
