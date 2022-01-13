@@ -1,5 +1,3 @@
-from explore2.convert_surfex_explore2 import convert_surfex_explore2
-
 alls_models = [
     ('CNRM-CM5-LR', 'ALADIN63', 'historical'),
     ('CNRM-CM5-LR', 'ALADIN63', 'rcp2.6'),
