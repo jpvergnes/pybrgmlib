@@ -1,84 +1,16 @@
 import array
+import os
 import numpy as np
 import re
 import glob
 import pandas as pd
-import pylab as plt
+import xarray as xr
 from collections import defaultdict
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
-alls = [
-    ('CNRM-CM5-LR', 'ALADIN63', 'historical'),
-    ('CNRM-CM5-LR', 'ALADIN63', 'rcp2.6'),
-    ('CNRM-CM5-LR', 'ALADIN63', 'rcp4.5'),
-    ('CNRM-CM5-LR', 'ALADIN63', 'rcp8.5'),
-    ('CNRM-CM5-LR', 'RACMO22E', 'historical'),
-    ('CNRM-CM5-LR', 'RACMO22E', 'rcp2.6'),
-    ('CNRM-CM5-LR', 'RACMO22E', 'rcp4.5'),
-    ('CNRM-CM5-LR', 'RACMO22E', 'rcp8.5'),
-    ('EC-EARTH', 'RACMO22E', 'historical'),
-    ('EC-EARTH', 'RACMO22E', 'rcp2.6'),
-    ('EC-EARTH', 'RACMO22E', 'rcp4.5'),
-    ('EC-EARTH', 'RACMO22E', 'rcp8.5'),
-    ('EC-EARTH', 'RCA4', 'historical'),
-    ('EC-EARTH', 'RCA4', 'rcp2.6'),
-    ('EC-EARTH', 'RCA4', 'rcp4.5'),
-    ('EC-EARTH', 'RCA4', 'rcp8.5'),
-    ('HadGEM2-ES', 'CCLM4-8-17', 'historical'),
-    ('HadGEM2-ES', 'CCLM4-8-17', 'rcp4.5'),
-    ('HadGEM2-ES', 'CCLM4-8-17', 'rcp8.5'),
-    ('HadGEM2-ES', 'RegCM4-6', 'historical'),
-    ('HadGEM2-ES', 'RegCM4-6', 'rcp2.6'),
-    ('HadGEM2-ES', 'RegCM4-6', 'rcp8.5'),
-    ('IPSL-CM5A-MR', 'RCA4', 'historical'),
-    ('IPSL-CM5A-MR', 'RCA4', 'rcp4.5'),
-    ('IPSL-CM5A-MR', 'RCA4', 'rcp8.5'),
-    ('IPSL-CM5A-MR', 'WRF381P', 'historical'),
-    ('IPSL-CM5A-MR', 'WRF381P', 'rcp4.5'),
-    ('IPSL-CM5A-MR', 'WRF381P', 'rcp8.5'),
-    ('MPI-ESM-LR', 'CCLM4-8-17', 'historical'),
-    ('MPI-ESM-LR', 'CCLM4-8-17', 'rcp2.6'),
-    ('MPI-ESM-LR', 'CCLM4-8-17', 'rcp4.5'),
-    ('MPI-ESM-LR', 'CCLM4-8-17', 'rcp8.5'),
-    ('MPI-ESM-LR', 'REMO2009', 'historical'),
-    ('MPI-ESM-LR', 'REMO2009', 'rcp2.6'),
-    ('MPI-ESM-LR', 'REMO2009', 'rcp4.5'),
-    ('MPI-ESM-LR', 'REMO2009', 'rcp8.5'),
-    ('NorESM1-M', 'HIRHAM5', 'historical'),
-    ('NorESM1-M', 'HIRHAM5', 'rcp4.5'),
-    ('NorESM1-M', 'HIRHAM5', 'rcp8.5'),
-    ('NorESM1-M', 'REMO2015', 'historical'),
-    ('NorESM1-M', 'REMO2015', 'rcp2.6'),
-    ('NorESM1-M', 'REMO2015', 'rcp8.5')
-]
 
-short_list_mf = [
-    ('CNRM-CM5-LR', 'ALADIN63', 'historical'),
-    ('CNRM-CM5-LR', 'ALADIN63', 'rcp2.6'),
-    ('CNRM-CM5-LR', 'ALADIN63', 'rcp4.5'),
-    ('CNRM-CM5-LR', 'ALADIN63', 'rcp8.5'),
-    ('EC-EARTH', 'RACMO22E', 'historical'),
-    ('EC-EARTH', 'RACMO22E', 'rcp2.6'),
-    ('EC-EARTH', 'RACMO22E', 'rcp4.5'),
-    ('EC-EARTH', 'RACMO22E', 'rcp8.5'),
-    ('HadGEM2-ES', 'CCLM4-8-17', 'historical'),
-    ('HadGEM2-ES', 'CCLM4-8-17', 'rcp4.5'),
-    ('HadGEM2-ES', 'CCLM4-8-17', 'rcp8.5'),
-    ('IPSL-CM5A-MR', 'WRF381P', 'historical'),
-    ('IPSL-CM5A-MR', 'WRF381P', 'rcp4.5'),
-    ('IPSL-CM5A-MR', 'WRF381P', 'rcp8.5'),
-    ('MPI-ESM-LR', 'CCLM4-8-17', 'historical'),
-    ('MPI-ESM-LR', 'CCLM4-8-17', 'rcp2.6'),
-    ('MPI-ESM-LR', 'CCLM4-8-17', 'rcp4.5'),
-    ('MPI-ESM-LR', 'CCLM4-8-17', 'rcp8.5'),
-]
-
-data_dir = '/home/jvergnes/FRC/SURFEX/EXPLORE2/DRIAS2020/{0}/{1}/{2}/day'
-drainc_prefix = 'DRAINC_ISBA.BIN'
-runoffc_prefix = 'RUNOFFC_ISBA.BIN'
-
-def process(fichier):
+def treatment(fichier):
     years = list(map(int, re.findall('_([0-9]+)', fichier)))
     date_range = pd.date_range(
         '{0}-8-1'.format(years[0]),
@@ -91,25 +23,24 @@ def process(fichier):
             a.fromfile(f, 9892)
             a.byteswap()
             df.append(np.array(a))
-    df = pd.DataFrame(
+    df = xr.DataArray(
         df,
-        index=date_range,
-        columns=range(1, 9893)
+        coords=[date_range, range(1, 9893)],
+        dims=["time", "zone"]
     )
-    df.iloc[1:, :]= df.iloc[1:, :].values - df.iloc[:-1, :].values
-    df = df.resample('M').sum()
+    df[1:, :] = df[1:, :] - df[:-1, :].values
+    df = df.resample(time='M').sum()
     return df
 
-def build_parameters():
+def build_parameters(data_dir, prefix, models):
     parameters, couples = [], []
-    for couple in alls:
+    for couple in models:
         data_dir_couple = data_dir.format(
             couple[0],
             couple[1],
             couple[2].upper().replace('.', '')
         )
-        print(data_dir_couple)
-        for fichier in glob.glob('{0}/{1}*'.format(data_dir_couple, drainc_prefix)):
+        for fichier in glob.glob('{0}/{1}*'.format(data_dir_couple, prefix)):
             parameters.append(fichier)
             couples.append(
                 (
@@ -120,22 +51,47 @@ def build_parameters():
             )
     return couples, parameters
 
-if __name__ == '__main__':
-    couples, parameters = build_parameters()
+def netcdf_monthly_time_series(filename, data_dir, prefix, models,  n_jobs):
+    couples, parameters = build_parameters(data_dir, prefix, models)
     inputs = tqdm(parameters)
-    processes = Parallel(n_jobs=40)(delayed(process)(i) for i in inputs)
+    processes = Parallel(n_jobs=n_jobs)(delayed(treatment)(i) for i in inputs)
     
     df = defaultdict(lambda: [])
     for couple, process in zip(couples, processes):
         df[couple].append(process)
     
-    for couple in alls:
-        df[couple] = pd.concat(df[couple], axis=0)
-        df[couple] = df[couple].sort_index()
-    
-    df = pd.concat(df, axis=1)
-    df.columns = df.columns.set_names(['GCM', 'RCM', 'Period', 'Zone'])
-    df.to_pickle('drainc_explore2_surfex.pkl')
+    dfhist = {}
+    dfrcps = {}
+    for couple in models:
+        df[couple] = xr.concat(df[couple], dim="time")
+        df[couple] = df[couple].sortby("time")
+        model = couple[:2]
+        period = couple[2]
+        if period == 'historical' and model not in dfhist:
+            dfhist[model] = df[couple]
+        else:
+            dfrcps[couple] = df[couple]
+
+    for couple in dfrcps:
+        model = couple[:2]
+        df_couple = xr.concat(
+                [dfhist[model], dfrcps[couple]],
+                dim="time"
+        )
+        df_couple = xr.Dataset(
+                {'DRAINC':df_couple}
+            )
+        os.makedirs('TREATMENT', exist_ok=True)
+        df_couple.to_netcdf(
+            "TREATMENT/{0}_{1}_{2}_{3}.nc".format(
+                couple[0], couple[1], couple[2], prefix.replace('.', '_')
+            )
+        )
+
+if __name__ == '__main__':
+    data_dir = '/home/jvergnes/FRC/SURFEX/EXPLORE2/DRIAS2020/{0}/{1}/{2}/day'
+    drainc_prefix = 'DRAINC_ISBA.BIN'
+    runoffc_prefix = 'RUNOFFC_ISBA.BIN'
 
 
 
