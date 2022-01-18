@@ -8,6 +8,7 @@ except ImportError:
 
 import numpy as np
 import pandas as pd
+import geopandas as gpd
 import dask
 import xarray
 from tqdm import tqdm
@@ -50,6 +51,22 @@ def build_polygon_safran():
         )
     return polygons
 
+def build_shapefile_safran():
+    """
+    Build the shapefile safran
+
+    Return
+    ------
+    geopandas.GeoDataFrame
+    """
+    safran = meteobrgm.build_polygon_safran()
+    gdf_safran = gpd.GeoDataFrame(
+        {'zone': np.arange(1, 9893)},
+        geometry=safran,
+        crs='EPSG:27572'
+    )
+    return gdf_safran
+
 def build_grid_safran():
     """
     Build the mask array of the SAFRAN grid.
@@ -76,6 +93,12 @@ def build_grid_safran():
                 index = XYcentre.index((x, y))
                 raster[i, j] = num_safran[index]
     return raster
+
+def extract_zones_from_shapefile(shp_input):
+    gdf = gpd.read_file(shp_input)
+    gdf = gdf.to_crs('EPSG:27572')
+    safran = meteobrgm.build_shapefile_safran()
+    return safran.overlay(gdf)
 
 def return_indices_safran(return_raster=False):
     """
