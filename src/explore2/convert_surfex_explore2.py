@@ -45,6 +45,7 @@ def treatment(nc, ncname, out_dir):
     for key, new_key in rempl.items():
         data.sel(X=key).data = data.sel(X=new_key).data
     data = data.where(~data.isnull(), 0)
+    data = data.cumsum(dim='time')
     binname = '{0}/{1}/{2}/{3}/day/{4}'.format(
         out_dir,
         nc[0], nc[1], nc[2],
@@ -69,6 +70,6 @@ def convert_surfex_explore2(in_dir, out_dir, n_jobs):
 if __name__ == '__main__':
     dirBRGMSurfex = '/mnt/e/EXPLORE2/MF_EXPLORE2_SURFEX'
     dirSurfex = '/mnt/e/EXPLORE2/EXPLORE2_SURFEX'
-    n_jobs = 10
+    n_jobs = 1
     convert_surfex_explore2(dirSurfex, dirBRGMSurfex, n_jobs)
 
