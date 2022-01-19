@@ -51,7 +51,7 @@ def build_parameters(data_dir, prefix, models):
             )
     return couples, parameters
 
-def netcdf_monthly_time_series(filename, data_dir, prefix, models,  n_jobs):
+def netcdf_monthly_time_series(data_dir, prefix, models,  n_jobs):
     couples, parameters = build_parameters(data_dir, prefix, models)
     inputs = tqdm(parameters)
     processes = Parallel(n_jobs=n_jobs)(delayed(treatment)(i) for i in inputs)
