@@ -77,10 +77,7 @@ def build_grid_safran():
         Array with the zone numbers from the SAFRAN grid. No data cells are 
         equal to 9999.
     """
-    coord = pkg_resources.open_text(meteobrgm, 'coord_9892')
-    df = pd.read_csv(coord, header=None, delim_whitespace=True)
-    Xcentre = df[4]
-    Ycentre = df[5]
+    Xcentre, Ycentre = meteobrgm.return_xy_safran()
     XYcentre = [(x, y) for x, y in zip(Xcentre, Ycentre)]
     num_safran = df[1]
 
@@ -120,6 +117,20 @@ def return_indices_safran(return_raster=False):
         return indices, raster
     else:
         return indices
+
+def return_xy_safran():
+    """
+    Return X and Y from SAFRAN
+
+    Returns
+    -------
+    list
+    """
+    coord = pkg_resources.open_text(meteobrgm, 'coord_9892')
+    df = pd.read_csv(coord, header=None, delim_whitespace=True)
+    Xcentre = df[4]
+    Ycentre = df[5]
+    return Xcentre, Ycentre
 
 def read_meteo_brgm_format(fname, ystart, zones=9892, skiprows=1):
     """

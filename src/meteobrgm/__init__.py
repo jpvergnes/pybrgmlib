@@ -4,6 +4,7 @@ from meteobrgm.pymeteobrgm import (
     build_shapefile_safran,
     extract_zones_from_shapefile,
     return_indices_safran,
+    return_xy_safran,
     read_meteo_brgm_format,
     read_meteofrance_format,
     write_meteo_brgm_format,
