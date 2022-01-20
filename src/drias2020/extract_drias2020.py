@@ -47,7 +47,7 @@ def build_parameters(baserep, selection, variables, out_rep):
                         element[0][2]
                 )
                 parameters.append((ninput, noutput_rep, fname))
-        return parameters
+    return parameters
 
 def extract_drias2020(baserep, selection, variables, out_rep, zones, n_jobs):
     parameters = build_parameters(baserep, selection, variables, out_rep)
