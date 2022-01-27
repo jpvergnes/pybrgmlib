@@ -31,10 +31,10 @@ def build_polygon_safran():
     """
     coord = pkg_resources.open_text(meteobrgm, 'coord_9892')
     df = pd.read_csv(coord, header=None, delim_whitespace=True)
-    Xleft = df[4] - RES/2.
-    Xright = df[4] + RES/2.
-    Ytop = df[5] - RES/2.
-    Ybottom = df[5] + RES/2.
+    Xleft = df[4] - int(RES/2.)
+    Xright = df[4] + int(RES/2.)
+    Ytop = df[5] - int(RES/2.)
+    Ybottom = df[5] + int(RES/2.)
 
     polygons = []
     for i in range(9892):
@@ -65,6 +65,8 @@ def build_shapefile_safran():
         geometry=safran,
         crs='EPSG:27572'
     )
+    if not gdf_safran.has_sindex:
+        gdf_safran.sindex
     return gdf_safran
 
 def build_grid_safran():
@@ -77,9 +79,8 @@ def build_grid_safran():
         Array with the zone numbers from the SAFRAN grid. No data cells are 
         equal to 9999.
     """
-    Xcentre, Ycentre = meteobrgm.return_xy_safran()
+    Xcentre, Ycentre, num_safran = meteobrgm.return_xy_safran()
     XYcentre = [(x, y) for x, y in zip(Xcentre, Ycentre)]
-    num_safran = df[1]
 
     raster = np.ones((NY, NX))*9999
     for i in range(NY):
@@ -93,6 +94,8 @@ def build_grid_safran():
 
 def extract_zones_from_shapefile(shp_input):
     gdf = gpd.read_file(shp_input)
+    if not gdf.has_sindex:
+        gdf.sindex
     gdf = gdf.to_crs('EPSG:27572')
     safran = meteobrgm.build_shapefile_safran()
     return safran.overlay(gdf)
@@ -130,7 +133,7 @@ def return_xy_safran():
     df = pd.read_csv(coord, header=None, delim_whitespace=True)
     Xcentre = df[4]
     Ycentre = df[5]
-    return Xcentre, Ycentre
+    return Xcentre, Ycentre, df[1]
 
 def read_meteo_brgm_format(fname, ystart, zones=9892, skiprows=1):
     """
@@ -216,7 +219,7 @@ def write_meteo_brgm_format(fname, data, header):
             delimiter=' ',
             fmt='%.3f')
 
-def write_meteo_brgm_format_with_date(fname, df):
+def write_meteo_brgm_format_with_date(fname, df, header='# '):
     """
     Write data in brgm format (with column date at the end)
 
@@ -226,11 +229,12 @@ def write_meteo_brgm_format_with_date(fname, df):
     df : pandas.DataFrame
         Needs to have datetime index 
     """
+    name = df.index.name
     df = df.reset_index()
-    dates = df.pop('index')
+    dates = df.pop(name)
     df.insert(len(df.columns), 'Date', dates)
     with open(fname, 'w', newline='') as f:
-        f.write('# ')
+        f.write(header)
         df.to_csv(f, sep=' ', index=None, date_format='%d/%m/%Y')
 
 def write_excel_simultane_format(fname, df):
@@ -249,10 +253,9 @@ def write_excel_simultane_format(fname, df):
 
 
 class MFSafranNetcdfDataset():
-    def __init__(self, paths, parallel=False):
+    def __init__(self, paths, xdim_name='X', ydim_name='Y', parallel=False):
         indices = meteobrgm.return_indices_safran()
         df = xarray.open_mfdataset(paths, parallel)
-        xdim_name, ydim_name = 'X', 'Y'
         if 'i' in df.coords.dims and 'j' in df.coords.dims:
             xdim_name, ydim_name = 'i', 'j'
         df[xdim_name] = np.arange(1, 144)
