@@ -235,7 +235,13 @@ def write_meteo_brgm_format_with_date(fname, df, header='# '):
     df.insert(len(df.columns), 'Date', dates)
     with open(fname, 'w', newline='') as f:
         f.write(header)
-        df.to_csv(f, sep=' ', index=None, date_format='%d/%m/%Y')
+        df.to_csv(
+            f,
+            sep=' ',
+            index=None,
+            date_format='%d/%m/%Y',
+            float_format='%.3f'
+        )
 
 def write_excel_simultane_format(fname, df):
     """
