@@ -229,9 +229,9 @@ def write_meteo_brgm_format_with_date(fname, df, header='# '):
     df : pandas.DataFrame
         Needs to have datetime index 
     """
-    name = df.index.name
+    df.index.name = 'index'
     df = df.reset_index()
-    dates = df.pop(name)
+    dates = df.pop('index')
     df.insert(len(df.columns), 'Date', dates)
     with open(fname, 'w', newline='') as f:
         f.write(header)
@@ -316,7 +316,7 @@ class ExtractSafran():
         'Pluie_Liq': 'Pluie_Liq_Jou_v2017_Safran_{0}_{1}',
         'Temper': 'Temper_Jou_v2017_Safran_{0}_{1}',
     }
-    host_dir = "\\\\VMPH74.brgm.fr\\Données\\Modélisation\\Hydrogéol_Aqui-FR\\Safran_v2017"
+    host_dir = "\\\\brgm.fr\\Données\\Modélisation\\Hydrogéol_Aqui-FR\\Safran_v2017"
     def __init__(self, output_dir, name, zones=9892):
         self.input_dir = self.host_dir
         if not os.path.isdir(output_dir):
