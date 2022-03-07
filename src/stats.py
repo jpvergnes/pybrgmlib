@@ -117,7 +117,7 @@ def compute_ips(dfobs, ref_period=None, njobs=1, **kwargs):
             delayed(single_ips)(name, item, df.loc[:, name]) for name, item in inputs
     )
     df.iloc[:, :] = np.array(splis).T
-    df = df.stack(dropna=False)
+    df = df.stack('month', dropna=False)
     df.index = [
         datetime.datetime(d[0], d[1], 1) for d in df.index.values.tolist()
     ]
