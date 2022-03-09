@@ -9,15 +9,12 @@ except ImportError:
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-import dask
 import xarray
 from tqdm import tqdm
 from joblib import Parallel, delayed
 from shapely.geometry import Polygon
 
 import meteobrgm
-
-dask.config.set(**{'array.slicing.split_large_chunks': True})
 
 X = (56000, 1200000)
 Y = (1613000, 2685000)

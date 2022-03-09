@@ -1,2 +1,7 @@
 pandas
 numpy
+geopandas
+xarray
+tqdm
+joblib
+shapely
