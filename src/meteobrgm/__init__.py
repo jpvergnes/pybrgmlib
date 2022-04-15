@@ -11,5 +11,6 @@ from meteobrgm.pymeteobrgm import (
     write_meteo_brgm_format_with_date,
     write_excel_simultane_format,
     MFSafranNetcdfDataset,
+    ExtractSafran,
     extract_safran
 )
