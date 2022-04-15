@@ -5,6 +5,8 @@ import re
 import os
 import psycopg2
 import pandas as pd
+import cloneades
+import xarray as xr
 
 def read_csv_chronique(fname):
     """
@@ -48,6 +50,34 @@ def request_pz_chroniques(codes, filtre='', only_point_eau=False):
     if not only_point_eau:
         ades.write_pz_chronique(codes)
     ades.write_log()
+
+def convert_pz_chroniques_to_netcdf(codes_piezos, obs_dir, nc_file):
+    """
+    Convert csv files from cloneades into 
+    a single netcf file
+
+    Parameters
+    ----------
+    codes_piezos: list of str
+        List of BSS codes to convert
+    obs_dir: str
+        Directory where csv files lie
+    nc_file: str
+        Output netcdf file
+    """
+    df_obs = {}
+    for code_piezo in codes_piezos:
+        df_obs[code_piezo] = cloneades.read_csv_chronique(
+            '{0}/{1}.csv'.format(
+                obs_dir,
+                code_piezo.replace('/', '_')
+            )
+        )['val_calc_ngf'].resample('D').mean()
+    df_obs = pd.concat(df_obs, axis=1)
+    df_obs.columns.name = 'codes_piezos'
+    df_obs.index.name = 'time'
+    data = xr.DataArray(df_obs, name='Charge')
+    data.to_netcdf(nc_file)
 
 
 class BDAdes():
