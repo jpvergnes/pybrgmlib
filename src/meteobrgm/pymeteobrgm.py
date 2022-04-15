@@ -22,43 +22,61 @@ RES = 8000.
 NX, NY = 143, 134
 EPSG = 27572
 
-def build_polygon_safran():
+def build_polygon_safran(res=8000.):
     """
     Build the shapefile
+
+    Parameter
+    ---------
+    res: int
+        Resolution of the polygons (need to be multiple of 2)
     """
+    assert res <= RES
+    assert RES % res  == 0
+    nres = int(RES / res)
     coord = pkg_resources.open_text(meteobrgm, 'coord_9892')
     df = pd.read_csv(coord, header=None, delim_whitespace=True)
     Xleft = df[4] - int(RES/2.)
     Xright = df[4] + int(RES/2.)
-    Ytop = df[5] - int(RES/2.)
-    Ybottom = df[5] + int(RES/2.)
+    Ybottom = df[5] - int(RES/2.)
+    Ytop = df[5] + int(RES/2.)
 
     polygons = []
     for i in range(9892):
-        polygons.append(
-            Polygon(
-                (
-                    (Xleft[i], Ybottom[i]),
-                    (Xright[i], Ybottom[i]),
-                    (Xright[i], Ytop[i]),
-                    (Xleft[i], Ytop[i]),
-                    (Xleft[i], Ybottom[i])
-                )
-            )
-        )
+        for j in range(nres):
+            Xleft2 = Xleft[i] + j*res
+            Xright2 = Xright[i] - (nres - (j +1))*res
+            for k in range(nres):
+                Ybottom2 = Ybottom[i] + k*res
+                Ytop2 = Ytop[i] - (nres - (k +1))*res
+                polygon = Polygon(
+                        (
+                            (Xleft2, Ybottom2),
+                            (Xright2, Ybottom2),
+                            (Xright2, Ytop2),
+                            (Xleft2, Ytop2),
+                            (Xleft2, Ybottom2)
+                        )
+                    )
+                polygons.append(polygon)
     return polygons
 
-def build_shapefile_safran():
+def build_shapefile_safran(res=8000.):
     """
     Build the shapefile safran
+
+    Parameter
+    ---------
+    res: int
+        Resolution of the polygons (need to be multiple of 2)
 
     Return
     ------
     geopandas.GeoDataFrame
     """
-    safran = meteobrgm.build_polygon_safran()
+    safran = meteobrgm.build_polygon_safran(res)
     gdf_safran = gpd.GeoDataFrame(
-        {'zone': np.arange(1, 9893)},
+        {'zone': np.arange(1, len(safran) + 1)},
         geometry=safran,
         crs='EPSG:27572'
     )
@@ -159,7 +177,8 @@ def read_meteo_brgm_format(fname, ystart, zones=9892, skiprows=1):
         fname,
         skiprows=skiprows,
         delim_whitespace=True,
-        header=None
+        header=None,
+        encoding='ISO-8859-1'
     )
     df = df.iloc[:, zones - 1] # -1 car indice python
     df.columns = zones
@@ -277,16 +296,17 @@ class MFSafranNetcdfDataset():
             ),
         )
 
-    def convert_to_meteo_brgm_format(self, paths, variable, year_start, year_end):
+    def convert_to_meteo_brgm_format(self, paths, variable, year_start, year_end, convert_unit=(1, '')):
         """
         Convert netcdf file in brgm format
 
         Parameters
         ----------
-        paths : str or list of str
-        variable : str
-        year_start : int
-        year_end : int
+        paths: str or list of str
+        variable: str
+        year_start: int
+        year_end: int
+        convert_unit: tuple (int, str)
         """
         for year in range(year_start, year_end):
             data = self.get_hydrological_year(variable, year)
@@ -296,6 +316,9 @@ class MFSafranNetcdfDataset():
                 long_name = data.long_name
             if hasattr(data, 'units'):
                 units = data.units
+            if convert_unit[0] != 1:
+                data = data * convert_unit[0]
+                units = convert_unit[1]
             header = (
                     "Données de la variable {0} convertie en {1} pour l'année hydrologique "
                     "{2}/{3} des {4} zones du ou des fichiers :"
