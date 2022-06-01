@@ -1,3 +1,4 @@
+from genericpath import exists
 import os
 from itertools import product
 
@@ -13,6 +14,7 @@ def treatment(ninput, outrep, fname, zones):
         ystart,
         zones=zones
     )
+    os.makedirs(outrep, exist_ok=True)
     write_meteo_brgm_format_with_date(
         '{0}/{1}'.format(outrep, fname),
         df,
